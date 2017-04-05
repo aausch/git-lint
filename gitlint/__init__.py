@@ -22,19 +22,20 @@ It supports many filetypes, including:
     among others. See https://github.com/sk-/git-lint for the complete list.
 
 Usage:
-    git-lint [-f | --force] [--json] [--last-commit] [FILENAME ...]
+    git-lint [-f | --force] [--json] [--last-commit] [--ignore=<fn>] [FILENAME ...]
     git-lint [-t | --tracked] [-f | --force] [--json] [--last-commit]
     git-lint -h | --version
 
 Options:
-    -h             Show the usage patterns.
-    --version      Prints the version number.
-    -f --force     Shows all the lines with problems.
-    -t --tracked   Lints only tracked files.
-    --json         Prints the result as a json string. Useful to use it in
-                   conjunction with other tools.
-    --last-commit  Checks the last checked-out commit. This is mostly useful
-                   when used as: git checkout <revid>; git lint --last-commit.
+    -h               Show the usage patterns.
+    --ignore=<files> List of files to ignore
+    --version        Prints the version number.
+    -f --force       Shows all the lines with problems.
+    -t --tracked     Lints only tracked files.
+    --json           Prints the result as a json string. Useful to use it in
+                     conjunction with other tools.
+    --last-commit    Checks the last checked-out commit. This is mostly useful
+                     when used as: git checkout <revid>; git lint --last-commit.
 """
 
 from __future__ import unicode_literals
@@ -190,6 +191,10 @@ def main(argv, stdout=sys.stdout, stderr=sys.stderr):
     if arguments['--last-commit']:
         commit = vcs.last_commit()
 
+    ignore_paths = ()
+    if arguments['--ignore']:
+        ignore_paths = tuple(arguments['--ignore'].split(','))
+
     if arguments['FILENAME']:
         invalid_filenames = find_invalid_filenames(arguments['FILENAME'],
                                                    repository_root)
@@ -217,7 +222,10 @@ def main(argv, stdout=sys.stdout, stderr=sys.stderr):
     gitlint_config = get_config(repository_root)
     json_result = {}
 
-    for filename in sorted(modified_files.keys()):
+    target_filenames = modified_files.keys() if len(ignore_paths) < 1 \
+        else [x for x in modified_files.keys()
+              if not os.path.relpath(x).startswith(ignore_paths)]
+    for filename in sorted(target_filenames):
         rel_filename = os.path.relpath(filename)
         if not json_output:
             stdout.write('Linting file: %s%s' %
